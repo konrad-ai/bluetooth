@@ -18,7 +18,8 @@
         scanButton.addEventListener('click', async () => {
             try {
                 const options = {
-                    acceptAllDevices: true
+                    acceptAllDevices: true,
+                    optionalServices: [] // Leave empty to try and discover all services
                 };
 
                 console.log('Requesting Bluetooth device...');
@@ -47,7 +48,7 @@
                 // Display device information
                 deviceInfo.innerHTML = `<h3>Connected to: ${device.name}</h3>`;
 
-                // Get all services and display them
+                // Get all services and characteristics and display them
                 const services = await server.getPrimaryServices();
                 if (services.length === 0) {
                     deviceInfo.innerHTML += `<p>No services found on this device.</p>`;
@@ -56,6 +57,14 @@
                         const serviceInfo = document.createElement('p');
                         serviceInfo.textContent = `Service: ${service.uuid}`;
                         deviceInfo.appendChild(serviceInfo);
+
+                        const characteristics = await service.getCharacteristics();
+                        for (const characteristic of characteristics) {
+                            const characteristicInfo = document.createElement('p');
+                            characteristicInfo.style.marginLeft = '20px';
+                            characteristicInfo.textContent = `Characteristic: ${characteristic.uuid}, Properties: ${JSON.stringify(characteristic.properties)}`;
+                            deviceInfo.appendChild(characteristicInfo);
+                        }
                     }
                 }
             } catch (error) {
