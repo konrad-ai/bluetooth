@@ -37,8 +37,8 @@
         });
 
         function isValidDevice(device) {
-            // Example check for a serial number in the name or id
-            return device.name && device.name.includes('GB5'); // Replace '12345' with the serial number or identifier you need to filter
+            // Updated check for any device name starting with "GB5"
+            return device.name && device.name.startsWith('GB5');
         }
 
         async function connectToDevice(device) {
