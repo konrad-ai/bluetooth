@@ -69,28 +69,54 @@
                         serviceInfo.textContent = `Service: ${service.uuid.substring(4, 8)}`; // Display short version of UUID
                         deviceInfo.appendChild(serviceInfo);
 
-                        const characteristics = await service.getCharacteristics();
-                        for (const characteristic of characteristics) {
-                            let value = 'N/A';
-                            try {
-                                if (characteristic.properties.read) {
-                                    const rawValue = await characteristic.readValue();
-                                    const decoder = new TextDecoder('utf-8');
-                                    value = decoder.decode(rawValue);
-                                }
-                            } catch (error) {
-                                console.error(`Error reading characteristic ${characteristic.uuid}:`, error);
-                            }
-
-                            const characteristicInfo = document.createElement('p');
-                            characteristicInfo.style.marginLeft = '20px';
-                            characteristicInfo.textContent = `Characteristic: ${characteristic.uuid.substring(4, 8)}, Value: ${value}, Properties: ${JSON.stringify(characteristic.properties)}`;
-                            deviceInfo.appendChild(characteristicInfo);
-                        }
+                        await getAllCharacteristics(service, 20);
                     }
                 }
             } catch (error) {
                 console.error('Error connecting to device:', error);
+            }
+        }
+
+        async function getAllCharacteristics(service, indent) {
+            try {
+                const characteristics = await service.getCharacteristics();
+                for (const characteristic of characteristics) {
+                    let value = 'N/A';
+                    try {
+                        if (characteristic.properties.read) {
+                            const rawValue = await characteristic.readValue();
+                            const decoder = new TextDecoder('utf-8');
+                            value = decoder.decode(rawValue);
+                        }
+                    } catch (error) {
+                        console.error(`Error reading characteristic ${characteristic.uuid}:`, error);
+                    }
+
+                    const characteristicInfo = document.createElement('p');
+                    characteristicInfo.style.marginLeft = `${indent}px`;
+                    characteristicInfo.textContent = `Characteristic: ${characteristic.uuid.substring(4, 8)}, Value: ${value}, Properties: ${JSON.stringify(characteristic.properties)}`;
+                    deviceInfo.appendChild(characteristicInfo);
+
+                    // Check for descriptors
+                    const descriptors = await characteristic.getDescriptors();
+                    for (const descriptor of descriptors) {
+                        let descriptorValue = 'N/A';
+                        try {
+                            const rawDescriptorValue = await descriptor.readValue();
+                            const decoder = new TextDecoder('utf-8');
+                            descriptorValue = decoder.decode(rawDescriptorValue);
+                        } catch (error) {
+                            console.error(`Error reading descriptor ${descriptor.uuid}:`, error);
+                        }
+
+                        const descriptorInfo = document.createElement('p');
+                        descriptorInfo.style.marginLeft = `${indent + 20}px`;
+                        descriptorInfo.textContent = `Descriptor: ${descriptor.uuid.substring(4, 8)}, Value: ${descriptorValue}`;
+                        deviceInfo.appendChild(descriptorInfo);
+                    }
+                }
+            } catch (error) {
+                console.error('Error getting characteristics:', error);
             }
         }
     </script>
