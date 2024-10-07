@@ -1,116 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bluetooth Scanner</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bluetooth Scanner</title>
 </head>
 <body>
-    <button id="scanButton">Scan for Devices</button>
-    <ul id="deviceList"></ul>
-    <div id="deviceInfo"></div>
-    
-    <script>
-        const scanButton = document.getElementById('scanButton');
-        const deviceList = document.getElementById('deviceList');
-        const deviceInfo = document.getElementById('deviceInfo');
+  <h1>Bluetooth Device Scanner</h1>
+  <button id="scanButton">Scan for Bluetooth Devices</button>
+  <div id="deviceInfo"></div>
 
-        scanButton.addEventListener('click', async () => {
-            try {
-                const options = {
-                    acceptAllDevices: true,
-                    optionalServices: [] // Leave empty to try and discover all services
-                };
+  <script>
+    // Check if the Web Bluetooth API is available
+    if (!navigator.bluetooth) {
+      console.error('Web Bluetooth is not available in this browser. Please use Chrome, Edge, or another supported browser.');
+      document.getElementById('deviceInfo').innerText = 'Web Bluetooth is not available in this browser. Please use Chrome, Edge, or another supported browser.';
+    } else {
+      console.log('Web Bluetooth is supported!');
+    }
 
-                console.log('Requesting Bluetooth device...');
-                const device = await navigator.bluetooth.requestDevice(options);
-                console.log('Device selected:', device.name);
-
-                if (isValidDevice(device)) {
-                    connectToDevice(device);
-                } else {
-                    alert('Device does not match the required criteria.');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-            }
+    // Function to start scanning for Bluetooth devices
+    async function scanForBluetoothDevices() {
+      try {
+        // Request Bluetooth devices with certain options
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: []
         });
 
-        function isValidDevice(device) {
-            return device.name;
-        }
+        console.log(`Found device: ${device.name}`);
+        document.getElementById('deviceInfo').innerHTML = `<h2>Found device: ${device.name}</h2>`;
 
-        function formatDeviceId(deviceId) {
-            // Convert base64 device ID to a UUID-like format
-            const rawBytes = Uint8Array.from(atob(deviceId), c => c.charCodeAt(0));
-            const hex = Array.from(rawBytes, byte => byte.toString(16).padStart(2, '0')).join('');
+        // Connect to the device and fetch services
+        const server = await device.gatt.connect();
+        const services = await server.getPrimaryServices();
 
-            // Format it similar to a UUID (8-4-4-4-12)
-            return `${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}`;
-        }
+        // Iterate over all available services and list characteristics
+        for (const service of services) {
+          const serviceInfo = document.createElement('div');
+          serviceInfo.innerHTML = `<h3>Service: ${service.uuid}</h3>`;
+          document.getElementById('deviceInfo').appendChild(serviceInfo);
 
-        async function connectToDevice(device) {
+          const characteristics = await service.getCharacteristics();
+          for (const characteristic of characteristics) {
+            const characteristicInfo = document.createElement('div');
+            characteristicInfo.style.marginLeft = '20px';
+            characteristicInfo.innerHTML = `Characteristic: ${characteristic.uuid}`;
+            serviceInfo.appendChild(characteristicInfo);
+
             try {
-                const server = await device.gatt.connect();
-                console.log('Connected to device:', device.name);
-
-                // Display device information
-                const formattedDeviceId = formatDeviceId(device.id);
-                deviceInfo.innerHTML = `<h3>Connected to: ${device.name}</h3>`;
-                deviceInfo.innerHTML += `<p>Device UUID: ${formattedDeviceId}</p>`;
-
-                // Get all services and characteristics and display them
-                const services = await server.getPrimaryServices();
-                if (services.length === 0) {
-                    deviceInfo.innerHTML += `<p>No services found on this device.</p>`;
-                } else {
-                    for (const service of services) {
-                        const serviceInfo = document.createElement('p');
-                        serviceInfo.textContent = `Service: ${service.uuid.substring(4, 8)}`; // Display short version of UUID
-                        deviceInfo.appendChild(serviceInfo);
-
-                        await getAllCharacteristics(service, 20);
-                    }
-                }
+              const value = await characteristic.readValue();
+              let valueText = '';
+              for (let i = 0; i < value.byteLength; i++) {
+                valueText += String.fromCharCode(value.getUint8(i));
+              }
+              const valueElement = document.createElement('div');
+              valueElement.style.marginLeft = '40px';
+              valueElement.innerHTML = `Value: ${valueText}`;
+              characteristicInfo.appendChild(valueElement);
             } catch (error) {
-                console.error('Error connecting to device:', error);
+              console.warn(`Unable to read value for characteristic ${characteristic.uuid}:`, error);
             }
+          }
         }
+      } catch (error) {
+        console.error('Error during Bluetooth scan:', error);
+        document.getElementById('deviceInfo').innerText = `Error during Bluetooth scan: ${error.message}`;
+      }
+    }
 
-        async function getAllCharacteristics(service, indent) {
-            try {
-                const characteristics = await service.getCharacteristics();
-                for (const characteristic of characteristics) {
-                    let value = 'N/A';
-                    try {
-                        if (characteristic.properties.read) {
-                            const rawValue = await characteristic.readValue();
-                            const decoder = new TextDecoder('utf-8');
-                            value = decoder.decode(rawValue);
-                        }
-                    } catch (error) {
-                        console.error(`Error reading characteristic ${characteristic.uuid}:`, error);
-                    }
-
-                    const characteristicInfo = document.createElement('p');
-                    characteristicInfo.style.marginLeft = `${indent}px`;
-                    characteristicInfo.textContent = `Characteristic: ${characteristic.uuid.substring(4, 8)}, Value: ${value}, Properties: ${JSON.stringify(characteristic.properties)}`;
-                    deviceInfo.appendChild(characteristicInfo);
-
-                    // Attempt to read nested characteristics if available
-                    try {
-                        const nestedService = await characteristic.getPrimaryService();
-                        if (nestedService) {
-                            await getAllCharacteristics(nestedService, indent + 20);
-                        }
-                    } catch (nestedError) {
-                        console.error(`No nested service found for characteristic ${characteristic.uuid}:`, nestedError);
-                    }
-                }
-            } catch (error) {
-                console.error('Error getting characteristics:', error);
-            }
-        }
-    </script>
+    // Attach the scan function to a button for user interaction
+    document.getElementById('scanButton').addEventListener('click', scanForBluetoothDevices);
+  </script>
 </body>
 </html>
