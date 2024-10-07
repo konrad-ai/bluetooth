@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bluetooth Scanner</title>
+</head>
+<body>
+    <button id="scanButton">Scan for Devices</button>
+    <ul id="deviceList"></ul>
+    
+    <script>
+        const scanButton = document.getElementById('scanButton');
+        const deviceList = document.getElementById('deviceList');
+
+        scanButton.addEventListener('click', async () => {
+            try {
+                const options = {
+                    acceptAllDevices: true,
+                    optionalServices: ['battery_service'] // Replace with actual UUIDs of your Bluetooth services
+                };
+
+                console.log('Requesting Bluetooth device...');
+                const device = await navigator.bluetooth.requestDevice(options);
+                console.log('Device selected:', device.name);
+
+                if (isValidDevice(device)) {
+                    connectToDevice(device);
+                } else {
+                    alert('Device does not match the required criteria.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+
+        function isValidDevice(device) {
+            // Example check for a serial number in the name or id
+            return device.name && device.name.includes('12345'); // Replace '12345' with the serial number or identifier you need to filter
+        }
+
+        async function connectToDevice(device) {
+            try {
+                const server = await device.gatt.connect();
+                console.log('Connected to device:', device.name);
+
+                // Get the custom service for network configuration
+                const service = await server.getPrimaryService('network_config_service'); // Replace with the UUID of your service
+
+                // SSID Characteristic
+                const ssidCharacteristic = await service.getCharacteristic('ssid_characteristic'); // Replace with the UUID
+                const newSSID = new TextEncoder().encode('MyNewSSID');
+                await ssidCharacteristic.writeValue(newSSID);
+                console.log('SSID updated.');
+
+                // Password Characteristic
+                const passwordCharacteristic = await service.getCharacteristic('password_characteristic'); // Replace with the UUID
+                const newPassword = new TextEncoder().encode('MyNewPassword');
+                await passwordCharacteristic.writeValue(newPassword);
+                console.log('Password updated.');
+                
+            } catch (error) {
+                console.error('Error connecting to device:', error);
+            }
+        }
+    </script>
+</body>
+</html>
