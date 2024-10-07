@@ -44,6 +44,7 @@
             try {
                 const server = await device.gatt.connect();
                 console.log('Connected to device:', device.name);
+                console.log('Device UUID:', device.uuid);
 
                 // Display device information
                 deviceInfo.innerHTML = `<h3>Connected to: ${device.name}</h3>`;
