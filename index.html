@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bluetooth Scanner v1.3</title>
+  <title>Bluetooth Scanner v1.4</title>
 </head>
 <body>
-  <h1>Bluetooth Device Scanner v1.3</h1>
+  <h1>Bluetooth Device Scanner v1.4</h1>
   <button id="scanButton">Scan for Bluetooth Devices</button>
   <div id="deviceInfo"></div>
 
@@ -25,7 +25,7 @@
         // Request Bluetooth devices with certain options
         const device = await navigator.bluetooth.requestDevice({
           acceptAllDevices: true,
-          optionalServices: []
+          optionalServices: ['D30A7847-E12B-09A8-B04B-8E0922A9ABAB']
         });
 
         console.log(`Found device: ${device.name}`);
