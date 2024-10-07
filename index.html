@@ -31,6 +31,15 @@
         console.log(`Found device: ${device.name}`);
         document.getElementById('deviceInfo').innerHTML = `<h2>Found device: ${device.name}</h2>`;
 
+        // Display device properties
+        const deviceInfo = document.createElement('div');
+        deviceInfo.innerHTML = `
+          <p>Device ID: ${device.id}</p>
+          <p>Device Name: ${device.name}</p>
+          <p>Device GATT Connected: ${device.gatt.connected}</p>
+        `;
+        document.getElementById('deviceInfo').appendChild(deviceInfo);
+
         // Connect to the device and fetch services
         const server = await device.gatt.connect();
         const services = await server.getPrimaryServices();
@@ -45,10 +54,11 @@
           for (const characteristic of characteristics) {
             const characteristicInfo = document.createElement('div');
             characteristicInfo.style.marginLeft = '20px';
-            characteristicInfo.innerHTML = `Characteristic: ${characteristic.uuid}`;
+            characteristicInfo.innerHTML = `Characteristic: ${characteristic.uuid} - Properties: ${Object.keys(characteristic.properties).filter(prop => characteristic.properties[prop]).join(', ')}`;
             serviceInfo.appendChild(characteristicInfo);
 
             try {
+              // Read characteristic value
               const value = await characteristic.readValue();
               let valueText = '';
               for (let i = 0; i < value.byteLength; i++) {
@@ -60,6 +70,26 @@
               characteristicInfo.appendChild(valueElement);
             } catch (error) {
               console.warn(`Unable to read value for characteristic ${characteristic.uuid}:`, error);
+            }
+
+            // Subscribe to notifications if available
+            if (characteristic.properties.notify) {
+              try {
+                await characteristic.startNotifications();
+                characteristic.addEventListener('characteristicvaluechanged', (event) => {
+                  const value = event.target.value;
+                  let valueText = '';
+                  for (let i = 0; i < value.byteLength; i++) {
+                    valueText += String.fromCharCode(value.getUint8(i));
+                  }
+                  const notificationElement = document.createElement('div');
+                  notificationElement.style.marginLeft = '40px';
+                  notificationElement.innerHTML = `Notification Value: ${valueText}`;
+                  characteristicInfo.appendChild(notificationElement);
+                });
+              } catch (error) {
+                console.warn(`Unable to subscribe to notifications for characteristic ${characteristic.uuid}:`, error);
+              }
             }
           }
         }
