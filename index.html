@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bluetooth Scanner</title>
+  <title>Bluetooth Scanner v1.2</title>
 </head>
 <body>
-  <h1>Bluetooth Device Scanner</h1>
+  <h1>Bluetooth Device Scanner v1.2</h1>
   <button id="scanButton">Scan for Bluetooth Devices</button>
   <div id="deviceInfo"></div>
 
@@ -31,7 +31,10 @@
         console.log(`Found device: ${device.name}`);
         document.getElementById('deviceInfo').innerHTML = `<h2>Found device: ${device.name}</h2>`;
 
-        // Display device properties
+        // Connect to the device and fetch services
+        const server = await device.gatt.connect();
+
+        // Display device properties after connection
         const deviceInfo = document.createElement('div');
         deviceInfo.innerHTML = `
           <p>Device ID: ${device.id}</p>
@@ -40,8 +43,6 @@
         `;
         document.getElementById('deviceInfo').appendChild(deviceInfo);
 
-        // Connect to the device and fetch services
-        const server = await device.gatt.connect();
         const services = await server.getPrimaryServices();
 
         // Iterate over all available services and list characteristics
