@@ -19,7 +19,6 @@
             try {
                 const options = {
                     acceptAllDevices: true,
-                    optionalServices: ['battery_service'] // Replace with actual UUIDs of your Bluetooth services
                 };
 
                 console.log('Requesting Bluetooth device...');
@@ -51,12 +50,16 @@
 
                 // Get all services and characteristics
                 const services = await server.getPrimaryServices();
-                for (const service of services) {
-                    const characteristics = await service.getCharacteristics();
-                    for (const characteristic of characteristics) {
-                        const characteristicInfo = document.createElement('p');
-                        characteristicInfo.textContent = `Service: ${service.uuid}, Characteristic: ${characteristic.uuid}, Properties: ${JSON.stringify(characteristic.properties)}`;
-                        deviceInfo.appendChild(characteristicInfo);
+                if (services.length === 0) {
+                    deviceInfo.innerHTML += `<p>No services found on this device.</p>`;
+                } else {
+                    for (const service of services) {
+                        const characteristics = await service.getCharacteristics();
+                        for (const characteristic of characteristics) {
+                            const characteristicInfo = document.createElement('p');
+                            characteristicInfo.textContent = `Service: ${service.uuid}, Characteristic: ${characteristic.uuid}, Properties: ${JSON.stringify(characteristic.properties)}`;
+                            deviceInfo.appendChild(characteristicInfo);
+                        }
                     }
                 }
             } catch (error) {
