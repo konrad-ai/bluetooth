@@ -18,8 +18,7 @@
         scanButton.addEventListener('click', async () => {
             try {
                 const options = {
-                    acceptAllDevices: true,
-                    optionalServices: ['battery_service', 'device_information'] // Add UUIDs of the services you want to access
+                    acceptAllDevices: true
                 };
 
                 console.log('Requesting Bluetooth device...');
