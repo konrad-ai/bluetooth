@@ -19,6 +19,7 @@
             try {
                 const options = {
                     acceptAllDevices: true,
+                    optionalServices: ['battery_service', 'device_information'] // Add UUIDs of the services you want to access
                 };
 
                 console.log('Requesting Bluetooth device...');
@@ -36,7 +37,6 @@
         });
 
         function isValidDevice(device) {
-            // Updated check for any device name starting with "GB5"
             return device.name;
         }
 
@@ -48,18 +48,15 @@
                 // Display device information
                 deviceInfo.innerHTML = `<h3>Connected to: ${device.name}</h3>`;
 
-                // Get all services and characteristics
+                // Get all services and display them
                 const services = await server.getPrimaryServices();
                 if (services.length === 0) {
                     deviceInfo.innerHTML += `<p>No services found on this device.</p>`;
                 } else {
                     for (const service of services) {
-                        const characteristics = await service.getCharacteristics();
-                        for (const characteristic of characteristics) {
-                            const characteristicInfo = document.createElement('p');
-                            characteristicInfo.textContent = `Service: ${service.uuid}, Characteristic: ${characteristic.uuid}, Properties: ${JSON.stringify(characteristic.properties)}`;
-                            deviceInfo.appendChild(characteristicInfo);
-                        }
+                        const serviceInfo = document.createElement('p');
+                        serviceInfo.textContent = `Service: ${service.uuid}`;
+                        deviceInfo.appendChild(serviceInfo);
                     }
                 }
             } catch (error) {
