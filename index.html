@@ -96,24 +96,6 @@
                     characteristicInfo.style.marginLeft = `${indent}px`;
                     characteristicInfo.textContent = `Characteristic: ${characteristic.uuid.substring(4, 8)}, Value: ${value}, Properties: ${JSON.stringify(characteristic.properties)}`;
                     deviceInfo.appendChild(characteristicInfo);
-
-                    // Check for descriptors
-                    const descriptors = await characteristic.getDescriptors();
-                    for (const descriptor of descriptors) {
-                        let descriptorValue = 'N/A';
-                        try {
-                            const rawDescriptorValue = await descriptor.readValue();
-                            const decoder = new TextDecoder('utf-8');
-                            descriptorValue = decoder.decode(rawDescriptorValue);
-                        } catch (error) {
-                            console.error(`Error reading descriptor ${descriptor.uuid}:`, error);
-                        }
-
-                        const descriptorInfo = document.createElement('p');
-                        descriptorInfo.style.marginLeft = `${indent + 20}px`;
-                        descriptorInfo.textContent = `Descriptor: ${descriptor.uuid.substring(4, 8)}, Value: ${descriptorValue}`;
-                        deviceInfo.appendChild(descriptorInfo);
-                    }
                 }
             } catch (error) {
                 console.error('Error getting characteristics:', error);
