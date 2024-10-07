@@ -96,6 +96,16 @@
                     characteristicInfo.style.marginLeft = `${indent}px`;
                     characteristicInfo.textContent = `Characteristic: ${characteristic.uuid.substring(4, 8)}, Value: ${value}, Properties: ${JSON.stringify(characteristic.properties)}`;
                     deviceInfo.appendChild(characteristicInfo);
+
+                    // Attempt to read nested characteristics if available
+                    try {
+                        const nestedService = await characteristic.getPrimaryService();
+                        if (nestedService) {
+                            await getAllCharacteristics(nestedService, indent + 20);
+                        }
+                    } catch (nestedError) {
+                        console.error(`No nested service found for characteristic ${characteristic.uuid}:`, nestedError);
+                    }
                 }
             } catch (error) {
                 console.error('Error getting characteristics:', error);
