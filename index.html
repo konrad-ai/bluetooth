@@ -8,10 +8,12 @@
 <body>
     <button id="scanButton">Scan for Devices</button>
     <ul id="deviceList"></ul>
+    <div id="deviceInfo"></div>
     
     <script>
         const scanButton = document.getElementById('scanButton');
         const deviceList = document.getElementById('deviceList');
+        const deviceInfo = document.getElementById('deviceInfo');
 
         scanButton.addEventListener('click', async () => {
             try {
@@ -36,7 +38,7 @@
 
         function isValidDevice(device) {
             // Example check for a serial number in the name or id
-            return device.name && device.name.includes('12345'); // Replace '12345' with the serial number or identifier you need to filter
+            return device.name && device.name.includes('GB5'); // Replace '12345' with the serial number or identifier you need to filter
         }
 
         async function connectToDevice(device) {
@@ -44,21 +46,23 @@
                 const server = await device.gatt.connect();
                 console.log('Connected to device:', device.name);
 
-                // Get the custom service for network configuration
-                const service = await server.getPrimaryService('network_config_service'); // Replace with the UUID of your service
+                // Display device information
+                deviceInfo.innerHTML = `<h3>Connected to: ${device.name}</h3>`;
 
-                // SSID Characteristic
-                const ssidCharacteristic = await service.getCharacteristic('ssid_characteristic'); // Replace with the UUID
-                const newSSID = new TextEncoder().encode('MyNewSSID');
-                await ssidCharacteristic.writeValue(newSSID);
-                console.log('SSID updated.');
+                // Get all services and characteristics
+                const services = await server.getPrimaryServices();
+                for (const service of services) {
+                    const characteristics = await service.getCharacteristics();
+                    for (const characteristic of characteristics) {
+                        let value = await characteristic.readValue();
+                        const decoder = new TextDecoder('utf-8');
+                        value = decoder.decode(value);
 
-                // Password Characteristic
-                const passwordCharacteristic = await service.getCharacteristic('password_characteristic'); // Replace with the UUID
-                const newPassword = new TextEncoder().encode('MyNewPassword');
-                await passwordCharacteristic.writeValue(newPassword);
-                console.log('Password updated.');
-                
+                        const characteristicInfo = document.createElement('p');
+                        characteristicInfo.textContent = `Service: ${service.uuid}, Characteristic: ${characteristic.uuid}, Value: ${value}`;
+                        deviceInfo.appendChild(characteristicInfo);
+                    }
+                }
             } catch (error) {
                 console.error('Error connecting to device:', error);
             }
