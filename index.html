@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bluetooth Device Status Checker v1</title>
+    <title>Bluetooth Device Status Checker v2</title>
     <style>
         /* Basic styling for the application */
         body {
@@ -62,7 +62,9 @@
                 'a0345678-1234-5678-1234-56789abcdef1',
                 'a0345678-1234-5678-1234-56789abcdef0',
                 '030b7847-e12b-09a8-b04b-8e0922a9abab',
-                '040b7847-e12b-09a8-b04b-8e0922a9abab'
+                '040b7847-e12b-09a8-b04b-8e0922a9abab',
+                'ababa922-098e-4bb0-a809-2be147780b03',
+                'ababa922-098e-4bb0-a809-2be147780b04'
             ];
 
             navigator.bluetooth.requestDevice({
@@ -83,6 +85,8 @@
                 return device.gatt.connect().then(server => ({ server: server, deviceName: deviceName }));
             })
             .then(obj => {
+                if (!obj) return;
+
                 const server = obj.server;
                 const deviceName = obj.deviceName;
 
@@ -96,8 +100,8 @@
                 const serviceMap = {
                     'd30a7847-e12b-09a8-b04b-8e0922a9abab': 'StepVariant1Closed',
                     'd10a7847-e12b-09a8-b04b-8e0922a9abab': 'StepVariant1Open',
-                    'a0345678-1234-5678-1234-56789abcdef1': 'StepVariant1Closed',
-                    'a0345678-1234-5678-1234-56789abcdef0': 'StepVariant1Open'
+                    'a0345678-1234-5678-1234-56789abcdef1': 'StepVariant2Closed',
+                    'a0345678-1234-5678-1234-56789abcdef0': 'StepVariant2Open'
                 };
 
                 return Promise.all(serviceUUIDs.map(uuid => {
@@ -116,8 +120,10 @@
                     const matchedServiceObj = services[0];
                     const stepVariant = serviceMap[matchedServiceObj.uuid];
 
-                    if (stepVariant === 'StepVariant1Closed' || stepVariant === 'StepVariant1Open') {
+                    if (stepVariant.startsWith('StepVariant1')) {
                         handleStepVariant1(matchedServiceObj.service, deviceName);
+                    } else if (stepVariant.startsWith('StepVariant2')) {
+                        handleStepVariant2(matchedServiceObj.service, deviceName);
                     } else {
                         displayStatus('Unknown error');
                     }
@@ -159,6 +165,49 @@
                             ? '<p class="green">Connected to router</p>'
                             : '<p class="red">Not connected to router</p>';
                     } else if (result.uuid === '040b7847-e12b-09a8-b04b-8e0922a9abab') {
+                        statusHtml += result.value
+                            ? '<p class="green">Connected to cloud</p>'
+                            : '<p class="red">Not connected to cloud</p>';
+                    }
+                });
+                displayStatus(statusHtml);
+            })
+            .catch(error => {
+                console.log(error);
+                displayStatus('Error: ' + error.message);
+            });
+        }
+
+        function handleStepVariant2(service, deviceName) {
+            const characteristicUUIDs = [
+                'ababa922-098e-4bb0-a809-2be147780b03',
+                'ababa922-098e-4bb0-a809-2be147780b04'
+            ];
+
+            Promise.all(characteristicUUIDs.map(uuid => {
+                return service.getCharacteristic(uuid.toLowerCase())
+                    .then(characteristic => characteristic.readValue())
+                    .then(value => {
+                        const decoder = new TextDecoder('utf-8');
+                        const valString = decoder.decode(value).trim().toLowerCase();
+                        const val = (valString === 'true' || valString === '1');
+                        return { uuid: uuid.toLowerCase(), value: val };
+                    })
+                    .catch(error => {
+                        console.log(error);
+                        return null;
+                    });
+            }))
+            .then(results => {
+                results = results.filter(result => result !== null);
+
+                let statusHtml = `<h2>${deviceName}</h2>`;
+                results.forEach(result => {
+                    if (result.uuid === 'ababa922-098e-4bb0-a809-2be147780b03') {
+                        statusHtml += result.value
+                            ? '<p class="green">Connected to router</p>'
+                            : '<p class="red">Not connected to router</p>';
+                    } else if (result.uuid === 'ababa922-098e-4bb0-a809-2be147780b04') {
                         statusHtml += result.value
                             ? '<p class="green">Connected to cloud</p>'
                             : '<p class="red">Not connected to cloud</p>';
