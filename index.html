@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bluetooth Device Status Checker v2</title>
+    <title>Bluetooth Device Status Checker - Version 1.1</title>
     <style>
         /* Basic styling for the application */
         body {
@@ -48,12 +48,13 @@
     </style>
 </head>
 <body>
-    <h1>Bluetooth Device Status Checker v2</h1>
+    <h1>Bluetooth Device Status Checker</h1>
     <button id="checkStatusBtn">Check machine status</button>
     <div id="status" class="status"></div>
 
     <script>
         const supportedPrefixes = ['lcr', 'micra', 'linea', 'gs3', 'kb90', 'gb5', 'strada', 'bluez'];
+        let connectedDevice = null;
 
         document.getElementById('checkStatusBtn').addEventListener('click', function() {
             const optionalServices = [
@@ -72,11 +73,13 @@
                 optionalServices: optionalServices
             })
             .then(device => {
+                connectedDevice = device; // Store the device globally for disconnection later
                 const deviceName = device.name || device.deviceName || 'Unknown Device';
                 const deviceNameLower = deviceName.toLowerCase();
 
                 if (!supportedPrefixes.some(prefix => deviceNameLower.startsWith(prefix))) {
                     displayStatus('Unsupported device');
+                    disconnectDevice(); // Disconnect if unsupported
                     return;
                 }
 
@@ -114,6 +117,7 @@
 
                     if (services.length === 0) {
                         displayStatus('Unknown error');
+                        disconnectDevice();
                         return;
                     }
 
@@ -126,12 +130,14 @@
                         handleStepVariant2(matchedServiceObj.service, deviceName);
                     } else {
                         displayStatus('Unknown error');
+                        disconnectDevice();
                     }
                 });
             })
             .catch(error => {
                 console.log(error);
                 displayStatus('Error: ' + error.message);
+                disconnectDevice();
             });
         });
 
@@ -171,10 +177,12 @@
                     }
                 });
                 displayStatus(statusHtml);
+                disconnectDevice();
             })
             .catch(error => {
                 console.log(error);
                 displayStatus('Error: ' + error.message);
+                disconnectDevice();
             });
         }
 
@@ -214,16 +222,26 @@
                     }
                 });
                 displayStatus(statusHtml);
+                disconnectDevice();
             })
             .catch(error => {
                 console.log(error);
                 displayStatus('Error: ' + error.message);
+                disconnectDevice();
             });
         }
 
         function displayStatus(message) {
             const statusDiv = document.getElementById('status');
             statusDiv.innerHTML = message;
+        }
+
+        function disconnectDevice() {
+            if (connectedDevice && connectedDevice.gatt.connected) {
+                connectedDevice.gatt.disconnect();
+                console.log('Device disconnected');
+                connectedDevice = null;
+            }
         }
     </script>
 </body>
