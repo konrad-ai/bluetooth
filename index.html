@@ -1,134 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bluetooth Scanner v1.61</title>
+    <meta charset="UTF-8">
+    <title>Bluetooth Device Status Checker v1</title>
+    <style>
+        /* Basic styling for the application */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 50px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .status {
+            margin-top: 30px;
+            font-size: 24px;
+        }
+
+        .green {
+            color: green;
+        }
+
+        .red {
+            color: red;
+        }
+
+        p {
+            margin: 10px 0;
+        }
+    </style>
 </head>
 <body>
-  <h1>Bluetooth Device Scanner v1.61</h1>
-  <button id="scanButton">Scan for Bluetooth Devices</button>
-  <div id="deviceInfo"></div>
+    <h1>Bluetooth Device Status Checker</h1>
+    <button id="checkStatusBtn">Check machine status</button>
+    <div id="status" class="status"></div>
 
-  <script>
-    // Check if the Web Bluetooth API is available
-    if (!navigator.bluetooth) {
-      console.error('Web Bluetooth is not available in this browser. Please use Chrome, Edge, or another supported browser.');
-      document.getElementById('deviceInfo').innerText = 'Web Bluetooth is not available in this browser. Please use Chrome, Edge, or another supported browser.';
-    } else {
-      console.log('Web Bluetooth is supported!');
-    }
+    <script>
+        const supportedPrefixes = ['lcr', 'micra', 'linea', 'gs3', 'kb90', 'gb5', 'strada', 'bluez'];
 
-    // Function to start scanning for Bluetooth devices
-    async function scanForBluetoothDevices() {
-      try {
-        // Request Bluetooth devices with certain options
-        const device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: ['d30a7847-e12b-09a8-b04b-8e0922a9abab','d10a7847-e12b-09a8-b04b-8e0922a9abab']
+        document.getElementById('checkStatusBtn').addEventListener('click', function() {
+            const optionalServices = [
+                'd30a7847-e12b-09a8-b04b-8e0922a9abab',
+                'd10a7847-e12b-09a8-b04b-8e0922a9abab',
+                'a0345678-1234-5678-1234-56789abcdef1',
+                'a0345678-1234-5678-1234-56789abcdef0',
+                '030b7847-e12b-09a8-b04b-8e0922a9abab',
+                '040b7847-e12b-09a8-b04b-8e0922a9abab'
+            ];
+
+            navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: optionalServices
+            })
+            .then(device => {
+                const deviceName = device.name || device.deviceName || 'Unknown Device';
+                const deviceNameLower = deviceName.toLowerCase();
+
+                if (!supportedPrefixes.some(prefix => deviceNameLower.startsWith(prefix))) {
+                    displayStatus('Unsupported device');
+                    return;
+                }
+
+                displayStatus('Connecting to ' + deviceName + '...');
+
+                return device.gatt.connect().then(server => ({ server: server, deviceName: deviceName }));
+            })
+            .then(obj => {
+                const server = obj.server;
+                const deviceName = obj.deviceName;
+
+                const serviceUUIDs = [
+                    'd30a7847-e12b-09a8-b04b-8e0922a9abab',
+                    'd10a7847-e12b-09a8-b04b-8e0922a9abab',
+                    'a0345678-1234-5678-1234-56789abcdef1',
+                    'a0345678-1234-5678-1234-56789abcdef0'
+                ];
+
+                const serviceMap = {
+                    'd30a7847-e12b-09a8-b04b-8e0922a9abab': 'StepVariant1Closed',
+                    'd10a7847-e12b-09a8-b04b-8e0922a9abab': 'StepVariant1Open',
+                    'a0345678-1234-5678-1234-56789abcdef1': 'StepVariant1Closed',
+                    'a0345678-1234-5678-1234-56789abcdef0': 'StepVariant1Open'
+                };
+
+                return Promise.all(serviceUUIDs.map(uuid => {
+                    return server.getPrimaryService(uuid.toLowerCase())
+                        .then(service => ({ uuid: uuid.toLowerCase(), service: service }))
+                        .catch(() => null);
+                }))
+                .then(services => {
+                    services = services.filter(serviceObj => serviceObj !== null);
+
+                    if (services.length === 0) {
+                        displayStatus('Unknown error');
+                        return;
+                    }
+
+                    const matchedServiceObj = services[0];
+                    const stepVariant = serviceMap[matchedServiceObj.uuid];
+
+                    if (stepVariant === 'StepVariant1Closed' || stepVariant === 'StepVariant1Open') {
+                        handleStepVariant1(matchedServiceObj.service, deviceName);
+                    } else {
+                        displayStatus('Unknown error');
+                    }
+                });
+            })
+            .catch(error => {
+                console.log(error);
+                displayStatus('Error: ' + error.message);
+            });
         });
 
-        console.log(`Found device: ${device.name}`);
-        document.getElementById('deviceInfo').innerHTML = `<h2>Found device: ${device.name}</h2>`;
+        function handleStepVariant1(service, deviceName) {
+            const characteristicUUIDs = [
+                '030b7847-e12b-09a8-b04b-8e0922a9abab',
+                '040b7847-e12b-09a8-b04b-8e0922a9abab'
+            ];
 
-        // Connect to the device and fetch services
-        const server = await device.gatt.connect();
+            Promise.all(characteristicUUIDs.map(uuid => {
+                return service.getCharacteristic(uuid.toLowerCase())
+                    .then(characteristic => characteristic.readValue())
+                    .then(value => {
+                        const decoder = new TextDecoder('utf-8');
+                        const valString = decoder.decode(value).trim().toLowerCase();
+                        const val = (valString === 'true' || valString === '1');
+                        return { uuid: uuid.toLowerCase(), value: val };
+                    })
+                    .catch(error => {
+                        console.log(error);
+                        return null;
+                    });
+            }))
+            .then(results => {
+                results = results.filter(result => result !== null);
 
-        // Display device properties after connection
-        const deviceInfo = document.createElement('div');
-        deviceInfo.innerHTML = `
-          <p>Device ID: ${device.id}</p>
-          <p>Device Name: ${device.name}</p>
-          <p>Device GATT Connected: ${device.gatt.connected}</p>
-        `;
-        document.getElementById('deviceInfo').appendChild(deviceInfo);
-
-        const services = await server.getPrimaryServices();
-
-        // Iterate over all available services and list characteristics
-        for (const service of services) {
-          const serviceInfo = document.createElement('div');
-          serviceInfo.innerHTML = `<h3>Service: ${service.uuid}</h3>`;
-          document.getElementById('deviceInfo').appendChild(serviceInfo);
-
-          const characteristics = await service.getCharacteristics();
-          for (const characteristic of characteristics) {
-            const characteristicInfo = document.createElement('div');
-            characteristicInfo.style.marginLeft = '20px';
-            characteristicInfo.innerHTML = `Characteristic: ${characteristic.uuid} - Properties: ${Object.keys(characteristic.properties).filter(prop => characteristic.properties[prop]).join(', ')}`;
-            serviceInfo.appendChild(characteristicInfo);
-
-            try {
-              // Read characteristic value
-              const value = await characteristic.readValue();
-              let valueText = '';
-              for (let i = 0; i < value.byteLength; i++) {
-                valueText += String.fromCharCode(value.getUint8(i));
-              }
-              const valueElement = document.createElement('div');
-              valueElement.style.marginLeft = '40px';
-              valueElement.innerHTML = `Value: ${valueText}`;
-              characteristicInfo.appendChild(valueElement);
-            } catch (error) {
-              console.warn(`Unable to read value for characteristic ${characteristic.uuid}:`, error);
-            }
-
-            // Subscribe to notifications if available
-            if (characteristic.properties.notify) {
-              try {
-                await characteristic.startNotifications();
-                characteristic.addEventListener('characteristicvaluechanged', (event) => {
-                  const value = event.target.value;
-                  let valueText = '';
-                  for (let i = 0; i < value.byteLength; i++) {
-                    valueText += String.fromCharCode(value.getUint8(i));
-                  }
-                  const notificationElement = document.createElement('div');
-                  notificationElement.style.marginLeft = '40px';
-                  notificationElement.innerHTML = `Notification Value: ${valueText}`;
-                  characteristicInfo.appendChild(notificationElement);
+                let statusHtml = `<h2>${deviceName}</h2>`;
+                results.forEach(result => {
+                    if (result.uuid === '030b7847-e12b-09a8-b04b-8e0922a9abab') {
+                        statusHtml += result.value
+                            ? '<p class="green">Connected to router</p>'
+                            : '<p class="red">Not connected to router</p>';
+                    } else if (result.uuid === '040b7847-e12b-09a8-b04b-8e0922a9abab') {
+                        statusHtml += result.value
+                            ? '<p class="green">Connected to cloud</p>'
+                            : '<p class="red">Not connected to cloud</p>';
+                    }
                 });
-              } catch (error) {
-                console.warn(`Unable to subscribe to notifications for characteristic ${characteristic.uuid}:`, error);
-              }
-            }
-
-            // Discover descriptors for each characteristic
-            try {
-              const descriptors = await characteristic.getDescriptors();
-              for (const descriptor of descriptors) {
-                const descriptorInfo = document.createElement('div');
-                descriptorInfo.style.marginLeft = '40px';
-                descriptorInfo.innerHTML = `Descriptor: ${descriptor.uuid}`;
-                characteristicInfo.appendChild(descriptorInfo);
-
-                try {
-                  const value = await descriptor.readValue();
-                  let valueText = '';
-                  for (let i = 0; i < value.byteLength; i++) {
-                    valueText += String.fromCharCode(value.getUint8(i));
-                  }
-                  const descriptorValueElement = document.createElement('div');
-                  descriptorValueElement.style.marginLeft = '60px';
-                  descriptorValueElement.innerHTML = `Descriptor Value: ${valueText}`;
-                  descriptorInfo.appendChild(descriptorValueElement);
-                } catch (error) {
-                  console.warn(`Unable to read value for descriptor ${descriptor.uuid}:`, error);
-                }
-              }
-            } catch (error) {
-              console.warn(`Unable to get descriptors for characteristic ${characteristic.uuid}:`, error);
-            }
-          }
+                displayStatus(statusHtml);
+            })
+            .catch(error => {
+                console.log(error);
+                displayStatus('Error: ' + error.message);
+            });
         }
-      } catch (error) {
-        console.error('Error during Bluetooth scan:', error);
-        document.getElementById('deviceInfo').innerText = `Error during Bluetooth scan: ${error.message}`;
-      }
-    }
 
-    // Attach the scan function to a button for user interaction
-    document.getElementById('scanButton').addEventListener('click', scanForBluetoothDevices);
-  </script>
+        function displayStatus(message) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = message;
+        }
+    </script>
 </body>
 </html>
