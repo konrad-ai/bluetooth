@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bluetooth Device Status Checker - Version 1.1</title>
+    <title>Bluetooth Device Status Checker - Version 2.0</title>
     <style>
         /* Basic styling for the application */
         body {
@@ -45,10 +45,14 @@
         p {
             margin: 10px 0;
         }
+
+        .error {
+            color: red;
+        }
     </style>
 </head>
 <body>
-    <h1>Bluetooth Device Status Checker</h1>
+    <h1>Bluetooth Device Status Checker - Version 2.0</h1>
     <button id="checkStatusBtn">Check machine status</button>
     <div id="status" class="status"></div>
 
@@ -58,14 +62,19 @@
 
         document.getElementById('checkStatusBtn').addEventListener('click', function() {
             const optionalServices = [
+                '0000180a-0000-1000-8000-00805f9b34fb', // Device Information service
                 'd30a7847-e12b-09a8-b04b-8e0922a9abab',
                 'd10a7847-e12b-09a8-b04b-8e0922a9abab',
                 'a0345678-1234-5678-1234-56789abcdef1',
                 'a0345678-1234-5678-1234-56789abcdef0',
+                'ababa922-098e-4bb0-a809-2be147780b01',
+                'ababa922-098e-4bb0-a809-2be147780b02',
                 '030b7847-e12b-09a8-b04b-8e0922a9abab',
                 '040b7847-e12b-09a8-b04b-8e0922a9abab',
+                'd70a7847-e12b-09a8-b04b-8e0922a9abab',
                 'ababa922-098e-4bb0-a809-2be147780b03',
-                'ababa922-098e-4bb0-a809-2be147780b04'
+                'ababa922-098e-4bb0-a809-2be147780b04',
+                'ababa922-098e-4bb0-a809-2be147780ad7'
             ];
 
             navigator.bluetooth.requestDevice({
@@ -78,12 +87,12 @@
                 const deviceNameLower = deviceName.toLowerCase();
 
                 if (!supportedPrefixes.some(prefix => deviceNameLower.startsWith(prefix))) {
-                    displayStatus('Unsupported device');
+                    displayStatus('<p>Unsupported device</p>');
                     disconnectDevice(); // Disconnect if unsupported
                     return;
                 }
 
-                displayStatus('Connecting to ' + deviceName + '...');
+                displayStatus('<p>Connecting to ' + deviceName + '...</p>');
 
                 return device.gatt.connect().then(server => ({ server: server, deviceName: deviceName }));
             })
@@ -93,68 +102,113 @@
                 const server = obj.server;
                 const deviceName = obj.deviceName;
 
-                const serviceUUIDs = [
-                    'd30a7847-e12b-09a8-b04b-8e0922a9abab',
-                    'd10a7847-e12b-09a8-b04b-8e0922a9abab',
-                    'a0345678-1234-5678-1234-56789abcdef1',
-                    'a0345678-1234-5678-1234-56789abcdef0'
-                ];
+                // Get Device Information Service
+                return server.getPrimaryService('0000180a-0000-1000-8000-00805f9b34fb')
+                .then(deviceInfoService => {
+                    return deviceInfoService.getCharacteristics()
+                    .then(characteristics => {
+                        let promises = [];
+                        let machineFirmware = '';
+                        let gatewayFirmware = '';
 
-                const serviceMap = {
-                    'd30a7847-e12b-09a8-b04b-8e0922a9abab': 'StepVariant1Closed',
-                    'd10a7847-e12b-09a8-b04b-8e0922a9abab': 'StepVariant1Open',
-                    'a0345678-1234-5678-1234-56789abcdef1': 'StepVariant2Closed',
-                    'a0345678-1234-5678-1234-56789abcdef0': 'StepVariant2Open'
-                };
+                        characteristics.forEach(characteristic => {
+                            const uuid = characteristic.uuid.toLowerCase();
+                            if (uuid.includes('2a26')) {
+                                promises.push(
+                                    characteristic.readValue().then(value => {
+                                        const decoder = new TextDecoder('utf-8');
+                                        machineFirmware = decoder.decode(value);
+                                    })
+                                );
+                            } else if (uuid.includes('2a28')) {
+                                promises.push(
+                                    characteristic.readValue().then(value => {
+                                        const decoder = new TextDecoder('utf-8');
+                                        gatewayFirmware = decoder.decode(value);
+                                    })
+                                );
+                            }
+                        });
 
-                return Promise.all(serviceUUIDs.map(uuid => {
-                    return server.getPrimaryService(uuid.toLowerCase())
-                        .then(service => ({ uuid: uuid.toLowerCase(), service: service }))
-                        .catch(() => null);
-                }))
-                .then(services => {
-                    services = services.filter(serviceObj => serviceObj !== null);
+                        return Promise.all(promises).then(() => ({ server: server, deviceName: deviceName, machineFirmware: machineFirmware, gatewayFirmware: gatewayFirmware }));
+                    });
+                })
+                .then(obj => {
+                    const server = obj.server;
+                    const deviceName = obj.deviceName;
+                    const machineFirmware = obj.machineFirmware;
+                    const gatewayFirmware = obj.gatewayFirmware;
 
-                    if (services.length === 0) {
-                        displayStatus('Unknown error');
-                        disconnectDevice();
-                        return;
-                    }
+                    const serviceUUIDs = [
+                        'd30a7847-e12b-09a8-b04b-8e0922a9abab',
+                        'd10a7847-e12b-09a8-b04b-8e0922a9abab',
+                        'a0345678-1234-5678-1234-56789abcdef1',
+                        'a0345678-1234-5678-1234-56789abcdef0',
+                        'ababa922-098e-4bb0-a809-2be147780b01',
+                        'ababa922-098e-4bb0-a809-2be147780b02'
+                    ];
 
-                    const matchedServiceObj = services[0];
-                    const stepVariant = serviceMap[matchedServiceObj.uuid];
+                    const serviceMap = {
+                        'd30a7847-e12b-09a8-b04b-8e0922a9abab': 'StepVariant1Closed',
+                        'd10a7847-e12b-09a8-b04b-8e0922a9abab': 'StepVariant1Open',
+                        'a0345678-1234-5678-1234-56789abcdef1': 'StepVariant1Closed',
+                        'a0345678-1234-5678-1234-56789abcdef0': 'StepVariant1Open',
+                        'ababa922-098e-4bb0-a809-2be147780b01': 'StepVariant2Closed',
+                        'ababa922-098e-4bb0-a809-2be147780b02': 'StepVariant2Open'
+                    };
 
-                    if (stepVariant.startsWith('StepVariant1')) {
-                        handleStepVariant1(matchedServiceObj.service, deviceName);
-                    } else if (stepVariant.startsWith('StepVariant2')) {
-                        handleStepVariant2(matchedServiceObj.service, deviceName);
-                    } else {
-                        displayStatus('Unknown error');
-                        disconnectDevice();
-                    }
+                    return Promise.all(serviceUUIDs.map(uuid => {
+                        return server.getPrimaryService(uuid.toLowerCase())
+                            .then(service => ({ uuid: uuid.toLowerCase(), service: service }))
+                            .catch(() => null);
+                    }))
+                    .then(services => {
+                        services = services.filter(serviceObj => serviceObj !== null);
+
+                        if (services.length === 0) {
+                            displayStatus('<p>Unknown error</p>');
+                            disconnectDevice();
+                            return;
+                        }
+
+                        const matchedServiceObj = services[0];
+                        const stepVariant = serviceMap[matchedServiceObj.uuid];
+
+                        if (stepVariant.startsWith('StepVariant1')) {
+                            handleStepVariant1(matchedServiceObj.service, deviceName, machineFirmware, gatewayFirmware, stepVariant);
+                        } else if (stepVariant.startsWith('StepVariant2')) {
+                            handleStepVariant2(matchedServiceObj.service, deviceName, machineFirmware, gatewayFirmware, stepVariant);
+                        } else {
+                            displayStatus('<p>Unknown error</p>');
+                            disconnectDevice();
+                        }
+                    });
                 });
             })
             .catch(error => {
                 console.log(error);
-                displayStatus('Error: ' + error.message);
+                displayStatus('<p class="error">Error, please retry.</p>');
                 disconnectDevice();
             });
         });
 
-        function handleStepVariant1(service, deviceName) {
+        function handleStepVariant1(service, deviceName, machineFirmware, gatewayFirmware, stepVariant) {
             const characteristicUUIDs = [
                 '030b7847-e12b-09a8-b04b-8e0922a9abab',
                 '040b7847-e12b-09a8-b04b-8e0922a9abab'
             ];
 
+            if (stepVariant === 'StepVariant1Open') {
+                characteristicUUIDs.push('d70a7847-e12b-09a8-b04b-8e0922a9abab');
+            }
+
             Promise.all(characteristicUUIDs.map(uuid => {
                 return service.getCharacteristic(uuid.toLowerCase())
                     .then(characteristic => characteristic.readValue())
                     .then(value => {
                         const decoder = new TextDecoder('utf-8');
-                        const valString = decoder.decode(value).trim().toLowerCase();
-                        const val = (valString === 'true' || valString === '1');
-                        return { uuid: uuid.toLowerCase(), value: val };
+                        const valString = decoder.decode(value).trim();
+                        return { uuid: uuid.toLowerCase(), value: valString };
                     })
                     .catch(error => {
                         console.log(error);
@@ -165,15 +219,28 @@
                 results = results.filter(result => result !== null);
 
                 let statusHtml = `<h2>${deviceName}</h2>`;
+
+                if (machineFirmware) {
+                    statusHtml += `<p>Machine Firmware: ${machineFirmware}</p>`;
+                }
+                if (gatewayFirmware) {
+                    statusHtml += `<p>Gateway Firmware: ${gatewayFirmware}</p>`;
+                }
+
                 results.forEach(result => {
-                    if (result.uuid === '030b7847-e12b-09a8-b04b-8e0922a9abab') {
-                        statusHtml += result.value
+                    const uuid = result.uuid.toLowerCase();
+                    if (uuid === '030b7847-e12b-09a8-b04b-8e0922a9abab') {
+                        const val = result.value.toLowerCase();
+                        statusHtml += (val === 'true' || val === '1')
                             ? '<p class="green">Connected to router</p>'
                             : '<p class="red">Not connected to router</p>';
-                    } else if (result.uuid === '040b7847-e12b-09a8-b04b-8e0922a9abab') {
-                        statusHtml += result.value
+                    } else if (uuid === '040b7847-e12b-09a8-b04b-8e0922a9abab') {
+                        const val = result.value.toLowerCase();
+                        statusHtml += (val === 'true' || val === '1')
                             ? '<p class="green">Connected to cloud</p>'
                             : '<p class="red">Not connected to cloud</p>';
+                    } else if (uuid === 'd70a7847-e12b-09a8-b04b-8e0922a9abab') {
+                        statusHtml += `<p>Network SSID: ${result.value}</p>`;
                     }
                 });
                 displayStatus(statusHtml);
@@ -181,25 +248,28 @@
             })
             .catch(error => {
                 console.log(error);
-                displayStatus('Error: ' + error.message);
+                displayStatus('<p class="error">Error, please retry.</p>');
                 disconnectDevice();
             });
         }
 
-        function handleStepVariant2(service, deviceName) {
+        function handleStepVariant2(service, deviceName, machineFirmware, gatewayFirmware, stepVariant) {
             const characteristicUUIDs = [
                 'ababa922-098e-4bb0-a809-2be147780b03',
                 'ababa922-098e-4bb0-a809-2be147780b04'
             ];
 
+            if (stepVariant === 'StepVariant2Open') {
+                characteristicUUIDs.push('ababa922-098e-4bb0-a809-2be147780ad7');
+            }
+
             Promise.all(characteristicUUIDs.map(uuid => {
                 return service.getCharacteristic(uuid.toLowerCase())
                     .then(characteristic => characteristic.readValue())
                     .then(value => {
                         const decoder = new TextDecoder('utf-8');
-                        const valString = decoder.decode(value).trim().toLowerCase();
-                        const val = (valString === 'true' || valString === '1');
-                        return { uuid: uuid.toLowerCase(), value: val };
+                        const valString = decoder.decode(value).trim();
+                        return { uuid: uuid.toLowerCase(), value: valString };
                     })
                     .catch(error => {
                         console.log(error);
@@ -210,15 +280,28 @@
                 results = results.filter(result => result !== null);
 
                 let statusHtml = `<h2>${deviceName}</h2>`;
+
+                if (machineFirmware) {
+                    statusHtml += `<p>Machine Firmware: ${machineFirmware}</p>`;
+                }
+                if (gatewayFirmware) {
+                    statusHtml += `<p>Gateway Firmware: ${gatewayFirmware}</p>`;
+                }
+
                 results.forEach(result => {
-                    if (result.uuid === 'ababa922-098e-4bb0-a809-2be147780b03') {
-                        statusHtml += result.value
+                    const uuid = result.uuid.toLowerCase();
+                    if (uuid === 'ababa922-098e-4bb0-a809-2be147780b03') {
+                        const val = result.value.toLowerCase();
+                        statusHtml += (val === 'true' || val === '1')
                             ? '<p class="green">Connected to router</p>'
                             : '<p class="red">Not connected to router</p>';
-                    } else if (result.uuid === 'ababa922-098e-4bb0-a809-2be147780b04') {
-                        statusHtml += result.value
+                    } else if (uuid === 'ababa922-098e-4bb0-a809-2be147780b04') {
+                        const val = result.value.toLowerCase();
+                        statusHtml += (val === 'true' || val === '1')
                             ? '<p class="green">Connected to cloud</p>'
                             : '<p class="red">Not connected to cloud</p>';
+                    } else if (uuid === 'ababa922-098e-4bb0-a809-2be147780ad7') {
+                        statusHtml += `<p>Network SSID: ${result.value}</p>`;
                     }
                 });
                 displayStatus(statusHtml);
@@ -226,14 +309,9 @@
             })
             .catch(error => {
                 console.log(error);
-                displayStatus('Error: ' + error.message);
+                displayStatus('<p class="error">Error, please retry.</p>');
                 disconnectDevice();
             });
-        }
-
-        function displayStatus(message) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.innerHTML = message;
         }
 
         function disconnectDevice() {
@@ -242,6 +320,11 @@
                 console.log('Device disconnected');
                 connectedDevice = null;
             }
+        }
+
+        function displayStatus(message) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = message;
         }
     </script>
 </body>
