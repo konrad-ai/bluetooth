@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bluetooth Device Status Checker - Version 3.2</title>
+    <title>Bluetooth Device Status Checker - Version 3.3</title>
     <style>
         /* Basic styling for the application */
         body {
@@ -84,7 +84,7 @@
     </style>
 </head>
 <body>
-    <h1>Bluetooth Device Status Checker - Version 3.2</h1>
+    <h1>Bluetooth Device Status Checker - Version 3.3</h1>
     <button id="checkStatusBtn">Check machine status</button>
     <div id="status" class="status"></div>
 
@@ -239,6 +239,21 @@
             });
         });
 
+        function readCharacteristicValue(characteristic) {
+            return characteristic.readValue()
+                .then(value => {
+                    let val;
+                    if (value.byteLength === 1) {
+                        // Read as unsigned 8-bit integer
+                        val = value.getUint8(0);
+                    } else {
+                        const decoder = new TextDecoder('utf-8');
+                        val = decoder.decode(value).trim();
+                    }
+                    return val;
+                });
+        }
+
         function handleStepVariant1(service, deviceName, machineFirmware, gatewayFirmware, stepVariant) {
             let characteristicUUIDs = [];
             let isOpen = false;
@@ -267,11 +282,9 @@
 
                 return Promise.all(characteristicUUIDs.map(uuid => {
                     return service.getCharacteristic(uuid)
-                        .then(characteristic => characteristic.readValue())
-                        .then(value => {
-                            const decoder = new TextDecoder('utf-8');
-                            const valString = decoder.decode(value).trim();
-                            return { uuid: uuid, value: valString };
+                        .then(characteristic => readCharacteristicValue(characteristic))
+                        .then(val => {
+                            return { uuid: uuid, value: val };
                         });
                 }));
             })
@@ -287,21 +300,27 @@
 
                 results.forEach(result => {
                     const uuid = result.uuid.toLowerCase();
-                    if (uuid === '030b7847-e12b-09a8-b04b-8e0922a9abab') {
-                        const val = result.value.toLowerCase();
-                        statusHtml += (val === 'true' || val === '1')
-                            ? '<p class="green">Connected to router</p>'
-                            : '<p class="red">Not connected to router</p>';
-                    } else if (uuid === '040b7847-e12b-09a8-b04b-8e0922a9abab') {
-                        const val = result.value.toLowerCase();
-                        statusHtml += (val === 'true' || val === '1')
-                            ? '<p class="green">Connected to cloud</p>'
-                            : '<p class="red">Not connected to cloud</p>';
+                    let val = result.value;
+                    if (uuid === '030b7847-e12b-09a8-b04b-8e0922a9abab' || uuid === '040b7847-e12b-09a8-b04b-8e0922a9abab') {
+                        if (typeof val === 'number') {
+                            val = val ? '1' : '0';
+                        } else {
+                            val = val.toLowerCase();
+                        }
+                        if (uuid === '030b7847-e12b-09a8-b04b-8e0922a9abab') {
+                            statusHtml += (val === 'true' || val === '1')
+                                ? '<p class="green">Connected to router</p>'
+                                : '<p class="red">Not connected to router</p>';
+                        } else if (uuid === '040b7847-e12b-09a8-b04b-8e0922a9abab') {
+                            statusHtml += (val === 'true' || val === '1')
+                                ? '<p class="green">Connected to cloud</p>'
+                                : '<p class="red">Not connected to cloud</p>';
+                        }
                     }
                 });
 
                 if (isOpen) {
-                    const ssidResult = results.find(result => result.uuid.toLowerCase() === ssidCharacteristicUUID);
+                    const ssidResult = results.find(result => result.uuid.toLowerCase() === ssidCharacteristicUUID.toLowerCase());
                     const ssidValue = ssidResult ? ssidResult.value : '';
                     statusHtml += `
                         <div class="input-group">
@@ -360,11 +379,9 @@
 
                 return Promise.all(characteristicUUIDs.map(uuid => {
                     return service.getCharacteristic(uuid)
-                        .then(characteristic => characteristic.readValue())
-                        .then(value => {
-                            const decoder = new TextDecoder('utf-8');
-                            const valString = decoder.decode(value).trim();
-                            return { uuid: uuid, value: valString };
+                        .then(characteristic => readCharacteristicValue(characteristic))
+                        .then(val => {
+                            return { uuid: uuid, value: val };
                         });
                 }));
             })
@@ -380,21 +397,27 @@
 
                 results.forEach(result => {
                     const uuid = result.uuid.toLowerCase();
-                    if (uuid === 'ababa922-098e-4bb0-a809-2be147780b03') {
-                        const val = result.value.toLowerCase();
-                        statusHtml += (val === 'true' || val === '1')
-                            ? '<p class="green">Connected to router</p>'
-                            : '<p class="red">Not connected to router</p>';
-                    } else if (uuid === 'ababa922-098e-4bb0-a809-2be147780b04') {
-                        const val = result.value.toLowerCase();
-                        statusHtml += (val === 'true' || val === '1')
-                            ? '<p class="green">Connected to cloud</p>'
-                            : '<p class="red">Not connected to cloud</p>';
+                    let val = result.value;
+                    if (uuid === 'ababa922-098e-4bb0-a809-2be147780b03' || uuid === 'ababa922-098e-4bb0-a809-2be147780b04') {
+                        if (typeof val === 'number') {
+                            val = val ? '1' : '0';
+                        } else {
+                            val = val.toLowerCase();
+                        }
+                        if (uuid === 'ababa922-098e-4bb0-a809-2be147780b03') {
+                            statusHtml += (val === 'true' || val === '1')
+                                ? '<p class="green">Connected to router</p>'
+                                : '<p class="red">Not connected to router</p>';
+                        } else if (uuid === 'ababa922-098e-4bb0-a809-2be147780b04') {
+                            statusHtml += (val === 'true' || val === '1')
+                                ? '<p class="green">Connected to cloud</p>'
+                                : '<p class="red">Not connected to cloud</p>';
+                        }
                     }
                 });
 
                 if (isOpen) {
-                    const ssidResult = results.find(result => result.uuid.toLowerCase() === ssidCharacteristicUUID);
+                    const ssidResult = results.find(result => result.uuid.toLowerCase() === ssidCharacteristicUUID.toLowerCase());
                     const ssidValue = ssidResult ? ssidResult.value : '';
                     statusHtml += `
                         <div class="input-group">
