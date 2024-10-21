@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bluetooth Device Status Checker - Version 3.0</title>
+    <title>Bluetooth Device Status Checker - Version 3.1</title>
     <style>
         /* Basic styling for the application */
         body {
@@ -84,7 +84,7 @@
     </style>
 </head>
 <body>
-    <h1>Bluetooth Device Status Checker - Version 3.0</h1>
+    <h1>Bluetooth Device Status Checker - Version 3.1</h1>
     <button id="checkStatusBtn">Check machine status</button>
     <div id="status" class="status"></div>
 
@@ -106,17 +106,7 @@
                 'a0345678-1234-5678-1234-56789abcdef1',
                 'a0345678-1234-5678-1234-56789abcdef0',
                 'ababa922-098e-4bb0-a809-2be147780b01',
-                'ababa922-098e-4bb0-a809-2be147780b02',
-                '030b7847-e12b-09a8-b04b-8e0922a9abab',
-                '040b7847-e12b-09a8-b04b-8e0922a9abab',
-                'd70a7847-e12b-09a8-b04b-8e0922a9abab',
-                'd80a7847-e12b-09a8-b04b-8e0922a9abab',
-                'dc0a7847-e12b-09a8-b04b-8e0922a9abab',
-                'ababa922-098e-4bb0-a809-2be147780b03',
-                'ababa922-098e-4bb0-a809-2be147780b04',
-                'ababa922-098e-4bb0-a809-2be147780ad7',
-                'ababa922-098e-4bb0-a809-2be147780ad8',
-                'ababa922-098e-4bb0-a809-2be147780adc'
+                'ababa922-098e-4bb0-a809-2be147780b02'
             ];
 
             navigator.bluetooth.requestDevice({
@@ -236,37 +226,42 @@
         });
 
         function handleStepVariant1(service, deviceName, machineFirmware, gatewayFirmware, stepVariant) {
-            const characteristicUUIDs = [
-                '030b7847-e12b-09a8-b04b-8e0922a9abab',
-                '040b7847-e12b-09a8-b04b-8e0922a9abab'
-            ];
-
+            let characteristicUUIDs = [];
             let isOpen = false;
 
             if (stepVariant === 'StepVariant1Open') {
                 isOpen = true;
-                characteristicUUIDs.push('d70a7847-e12b-09a8-b04b-8e0922a9abab'); // SSID
+                characteristicUUIDs = [
+                    '030b7847-e12b-09a8-b04b-8e0922a9abab',
+                    '040b7847-e12b-09a8-b04b-8e0922a9abab',
+                    'd70a7847-e12b-09a8-b04b-8e0922a9abab' // SSID
+                ];
                 ssidCharacteristicUUID = 'd70a7847-e12b-09a8-b04b-8e0922a9abab';
                 passwordCharacteristicUUID = 'd80a7847-e12b-09a8-b04b-8e0922a9abab';
                 triggerCharacteristicUUID = 'dc0a7847-e12b-09a8-b04b-8e0922a9abab';
+            } else {
+                characteristicUUIDs = [
+                    '030b7847-e12b-09a8-b04b-8e0922a9abab',
+                    '040b7847-e12b-09a8-b04b-8e0922a9abab'
+                ];
             }
 
-            Promise.all(characteristicUUIDs.map(uuid => {
-                return service.getCharacteristic(uuid.toLowerCase())
-                    .then(characteristic => characteristic.readValue())
-                    .then(value => {
-                        const decoder = new TextDecoder('utf-8');
-                        const valString = decoder.decode(value).trim();
-                        return { uuid: uuid.toLowerCase(), value: valString };
-                    })
-                    .catch(error => {
-                        console.log(error);
-                        return null;
-                    });
-            }))
-            .then(results => {
-                results = results.filter(result => result !== null);
+            service.getCharacteristics()
+            .then(characteristics => {
+                const availableUUIDs = characteristics.map(c => c.uuid.toLowerCase());
+                characteristicUUIDs = characteristicUUIDs.filter(uuid => availableUUIDs.includes(uuid));
 
+                return Promise.all(characteristicUUIDs.map(uuid => {
+                    return service.getCharacteristic(uuid)
+                        .then(characteristic => characteristic.readValue())
+                        .then(value => {
+                            const decoder = new TextDecoder('utf-8');
+                            const valString = decoder.decode(value).trim();
+                            return { uuid: uuid, value: valString };
+                        });
+                }));
+            })
+            .then(results => {
                 let statusHtml = `<h2>${deviceName}</h2>`;
 
                 if (machineFirmware) {
@@ -292,7 +287,8 @@
                 });
 
                 if (isOpen) {
-                    const ssidValue = results.find(result => result.uuid === ssidCharacteristicUUID)?.value || '';
+                    const ssidResult = results.find(result => result.uuid.toLowerCase() === ssidCharacteristicUUID);
+                    const ssidValue = ssidResult ? ssidResult.value : '';
                     statusHtml += `
                         <div class="input-group">
                             <label for="ssidInput">WiFi Network Name</label>
@@ -323,37 +319,42 @@
         }
 
         function handleStepVariant2(service, deviceName, machineFirmware, gatewayFirmware, stepVariant) {
-            const characteristicUUIDs = [
-                'ababa922-098e-4bb0-a809-2be147780b03',
-                'ababa922-098e-4bb0-a809-2be147780b04'
-            ];
-
+            let characteristicUUIDs = [];
             let isOpen = false;
 
             if (stepVariant === 'StepVariant2Open') {
                 isOpen = true;
-                characteristicUUIDs.push('ababa922-098e-4bb0-a809-2be147780ad7'); // SSID
+                characteristicUUIDs = [
+                    'ababa922-098e-4bb0-a809-2be147780b03',
+                    'ababa922-098e-4bb0-a809-2be147780b04',
+                    'ababa922-098e-4bb0-a809-2be147780ad7' // SSID
+                ];
                 ssidCharacteristicUUID = 'ababa922-098e-4bb0-a809-2be147780ad7';
                 passwordCharacteristicUUID = 'ababa922-098e-4bb0-a809-2be147780ad8';
                 triggerCharacteristicUUID = 'ababa922-098e-4bb0-a809-2be147780adc';
+            } else {
+                characteristicUUIDs = [
+                    'ababa922-098e-4bb0-a809-2be147780b03',
+                    'ababa922-098e-4bb0-a809-2be147780b04'
+                ];
             }
 
-            Promise.all(characteristicUUIDs.map(uuid => {
-                return service.getCharacteristic(uuid.toLowerCase())
-                    .then(characteristic => characteristic.readValue())
-                    .then(value => {
-                        const decoder = new TextDecoder('utf-8');
-                        const valString = decoder.decode(value).trim();
-                        return { uuid: uuid.toLowerCase(), value: valString };
-                    })
-                    .catch(error => {
-                        console.log(error);
-                        return null;
-                    });
-            }))
-            .then(results => {
-                results = results.filter(result => result !== null);
+            service.getCharacteristics()
+            .then(characteristics => {
+                const availableUUIDs = characteristics.map(c => c.uuid.toLowerCase());
+                characteristicUUIDs = characteristicUUIDs.filter(uuid => availableUUIDs.includes(uuid));
 
+                return Promise.all(characteristicUUIDs.map(uuid => {
+                    return service.getCharacteristic(uuid)
+                        .then(characteristic => characteristic.readValue())
+                        .then(value => {
+                            const decoder = new TextDecoder('utf-8');
+                            const valString = decoder.decode(value).trim();
+                            return { uuid: uuid, value: valString };
+                        });
+                }));
+            })
+            .then(results => {
                 let statusHtml = `<h2>${deviceName}</h2>`;
 
                 if (machineFirmware) {
@@ -379,7 +380,8 @@
                 });
 
                 if (isOpen) {
-                    const ssidValue = results.find(result => result.uuid === ssidCharacteristicUUID)?.value || '';
+                    const ssidResult = results.find(result => result.uuid.toLowerCase() === ssidCharacteristicUUID);
+                    const ssidValue = ssidResult ? ssidResult.value : '';
                     statusHtml += `
                         <div class="input-group">
                             <label for="ssidInput">WiFi Network Name</label>
