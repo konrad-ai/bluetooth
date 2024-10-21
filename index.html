@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bluetooth Device Status Checker - Version 3.3</title>
+    <title>Bluetooth Device Status Checker - Version 3.4</title>
     <style>
         /* Basic styling for the application */
         body {
@@ -84,7 +84,7 @@
     </style>
 </head>
 <body>
-    <h1>Bluetooth Device Status Checker - Version 3.3</h1>
+    <h1>Bluetooth Device Status Checker - Version 3.4</h1>
     <button id="checkStatusBtn">Check machine status</button>
     <div id="status" class="status"></div>
 
@@ -399,20 +399,25 @@
                     const uuid = result.uuid.toLowerCase();
                     let val = result.value;
                     if (uuid === 'ababa922-098e-4bb0-a809-2be147780b03' || uuid === 'ababa922-098e-4bb0-a809-2be147780b04') {
+                        let displayMessage = '';
                         if (typeof val === 'number') {
-                            val = val ? '1' : '0';
-                        } else {
+                            val = val.toString();
+                        } else if (typeof val === 'boolean') {
+                            val = val ? 'true' : 'false';
+                        } else if (typeof val === 'string') {
                             val = val.toLowerCase();
                         }
-                        if (uuid === 'ababa922-098e-4bb0-a809-2be147780b03') {
-                            statusHtml += (val === 'true' || val === '1')
-                                ? '<p class="green">Connected to router</p>'
-                                : '<p class="red">Not connected to router</p>';
-                        } else if (uuid === 'ababa922-098e-4bb0-a809-2be147780b04') {
-                            statusHtml += (val === 'true' || val === '1')
-                                ? '<p class="green">Connected to cloud</p>'
-                                : '<p class="red">Not connected to cloud</p>';
+
+                        if (val === 'true' || val === '1') {
+                            displayMessage = (uuid === 'ababa922-098e-4bb0-a809-2be147780b03') ? '<p class="green">Connected to router</p>' : '<p class="green">Connected to cloud</p>';
+                        } else if (val === 'false' || val === '0') {
+                            displayMessage = (uuid === 'ababa922-098e-4bb0-a809-2be147780b03') ? '<p class="red">Not connected to router</p>' : '<p class="red">Not connected to cloud</p>';
+                        } else {
+                            // Display raw value
+                            displayMessage = `<p>Characteristic ${uuid} value: ${val}</p>`;
                         }
+
+                        statusHtml += displayMessage;
                     }
                 });
 
