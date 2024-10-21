@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bluetooth Device Status Checker - Version 3.41</title>
+    <title>Bluetooth Device Status Checker - Version 3.42</title>
     <style>
         /* Basic styling for the application */
         body {
@@ -84,7 +84,7 @@
     </style>
 </head>
 <body>
-    <h1>Bluetooth Device Status Checker - Version 3.41</h1>
+    <h1>Bluetooth Device Status Checker - Version 3.42</h1>
     <button id="checkStatusBtn">Check machine status</button>
     <div id="status" class="status"></div>
 
@@ -195,10 +195,8 @@
                     const serviceMap = {
                         'd30a7847-e12b-09a8-b04b-8e0922a9abab': 'StepVariant1Closed',
                         'd10a7847-e12b-09a8-b04b-8e0922a9abab': 'StepVariant1Open',
-                        'a0345678-1234-5678-1234-56789abcdef1': 'StepVariant1Closed',
-                        'a0345678-1234-5678-1234-56789abcdef0': 'StepVariant1Open',
-                        'ababa922-098e-4bb0-a809-2be147780b01': 'StepVariant2Closed',
-                        'ababa922-098e-4bb0-a809-2be147780b02': 'StepVariant2Open'
+                        'a0345678-1234-5678-1234-56789abcdef1': 'StepVariant2Closed',
+                        'a0345678-1234-5678-1234-56789abcdef0': 'StepVariant2Open',
                     };
 
                     return Promise.all(serviceUUIDs.map(uuid => {
